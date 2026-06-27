@@ -15,7 +15,7 @@ if not GROQ_API_KEY:
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "deepseek-r1-distill-llama-70b"
+MODEL = "openai/gpt-oss-20b"
 
 # ---------------- STATE ----------------
 if "users" not in st.session_state:
@@ -185,7 +185,7 @@ else:
         )
 
 # ---------------- CHAT ----------------
-if prompt := st.chat_input("Type a message for Nova"):
+if prompt := st.chat_input("Type for Talking"):
     user["messages"].append({"role": "user", "content": prompt})
 
     response = client.chat.completions.create(
