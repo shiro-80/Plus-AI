@@ -3,10 +3,7 @@ import os
 from groq import Groq
 
 # ---------------- CONFIG ----------------
-st.set_page_config(
-    page_title="Plus+AI",
-    layout="wide"
-)
+st.set_page_config(page_title="Plus+AI", layout="wide")
 
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
@@ -19,21 +16,18 @@ if not GROQ_API_KEY:
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "openai/gpt-oss-20b"  # use a real Groq model
+MODEL = "llama-3.3-70b-versatile"   # use any valid Groq model
 
 # ---------------- PURE DARK THEME CSS ----------------
 def inject_css():
     st.markdown(
         """
         <style>
-        /* Global overrides */
         .stApp {
             background: #000000;
             color: #f2f2f2;
         }
         header[data-testid="stHeader"] { background: transparent; }
-
-        /* Hide sidebar completely */
         section[data-testid="stSidebar"] { display: none; }
         div[data-testid="collapsedControl"] { display: none; }
 
@@ -43,20 +37,14 @@ def inject_css():
             padding-bottom: 6rem;
         }
 
-        /* Login card */
-        .login-wrap { display: flex; justify-content: center; margin-top: 8vh; }
-        .login-card {
-            width: 100%;
-            max-width: 380px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 18px;
-            padding: 36px 32px 28px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-            text-align: center;
+        /* Super clean login */
+        .login-wrap {
+            display: flex; justify-content: center; margin-top: 30vh;
         }
-        .login-title { font-size: 22px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px; color: #f2f2f2; }
-        .login-sub { font-size: 13px; color: #888; margin-bottom: 22px; }
+        .login-card {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 12px;
+        }
 
         /* Chat header */
         .chat-header {
@@ -102,40 +90,28 @@ def inject_css():
         .empty-state .big { font-size: 17px; color: #f2f2f2; margin-bottom: 6px; font-weight: 500; }
         .empty-state .hint { font-size: 12px; margin-top: 14px; color: #888; opacity: 0.8; }
 
-        /* Buttons */
+        /* Buttons & inputs */
         .stButton button {
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.03);
-            color: #f2f2f2;
+            border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03); color: #f2f2f2;
         }
-        .stButton button:hover {
-            border-color: #9bb7d4;
-        }
+        .stButton button:hover { border-color: #9bb7d4; }
+        textarea, input { color: #f2f2f2 !important; }
 
-        /* Inputs */
-        textarea, input {
-            color: #f2f2f2 !important;
-        }
-
-        /* ERADICATE RED and default grey bars */
+        /* ERADICATE RED & GREY */
         div[data-testid="stAlert"] {
             background-color: rgba(255,255,255,0.03) !important;
             border: 1px solid rgba(255,255,255,0.08) !important;
             color: #f2f2f2 !important;
         }
-        div[data-testid="stAlert"] * {
-            color: #f2f2f2 !important;
-        }
+        div[data-testid="stAlert"] * { color: #f2f2f2 !important; }
         div[data-testid="stAlertContentError"],
         div[data-testid="stAlertContainer"] {
             background-color: transparent !important;
         }
-        div[data-testid="stAlert"] svg {
-            fill: #9bb7d4 !important;
-        }
+        div[data-testid="stAlert"] svg { fill: #9bb7d4 !important; }
 
-        /* Remove grey backdrop behind chat input */
+        /* Chat input area */
         div[data-testid="stBottomBlockContainer"],
         div[data-testid="stBottom"],
         div[data-testid="stChatInputContainer"] {
@@ -150,7 +126,6 @@ def inject_css():
             background-color: transparent !important;
         }
 
-        /* Chat input styling */
         div[data-testid="stChatInput"] {
             background-color: rgba(255,255,255,0.03) !important;
             border: 1px solid rgba(255,255,255,0.1) !important;
@@ -160,12 +135,8 @@ def inject_css():
             background-color: transparent !important;
             color: #f2f2f2 !important;
         }
-        div[data-testid="stChatInput"] textarea::placeholder {
-            color: #888 !important;
-        }
-        div[data-testid="stChatInput"] button svg {
-            fill: #9bb7d4 !important;
-        }
+        div[data-testid="stChatInput"] textarea::placeholder { color: #888 !important; }
+        div[data-testid="stChatInput"] button svg { fill: #9bb7d4 !important; }
         </style>
         """,
         unsafe_allow_html=True
@@ -174,63 +145,38 @@ def inject_css():
 inject_css()
 
 # ---------------- STATE ----------------
-if "users" not in st.session_state:
-    st.session_state.users = {}
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 if "last_processed_input" not in st.session_state:
-    st.session_state.last_processed_input = None   # ← fix infinite reruns
+    st.session_state.last_processed_input = None
 
-# ---------------- LOGIN ----------------
+SYSTEM_PROMPT = (
+    "You are Plus+, a personal AI assistant. "
+    "Be clear, calm, and intelligent. "
+    "Never refer to the user in the third person."
+)
+
+# ---------------- SUPER CLEAN LOGIN (no extra text) ----------------
 if not st.session_state.current_user:
     st.markdown("<div class='login-wrap'>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div class="login-card">
-            <div class="login-title">Plus+AI</div>
-            <div class="login-sub">Sign in to continue</div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    username = st.text_input("Username", label_visibility="collapsed", placeholder="Username")
-    password = ""
-
-    if username.lower() == "vool":
-        password = st.text_input(
-            "Password", type="password",
-            label_visibility="collapsed", placeholder="Password"
+    with st.container():
+        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+        username = st.text_input(
+            "Username",
+            label_visibility="collapsed",
+            placeholder="Username"
         )
-
-    login_clicked = st.button("Sign in", use_container_width=True)
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-    if login_clicked:
-        if not username.strip():
-            st.warning("Enter a username")
-            st.stop()
-        if username.lower() == "vool" and password != "8712":
-            st.warning("Incorrect password")
-            st.stop()
-
-        st.session_state.current_user = username
-
-        if username not in st.session_state.users:
-            st.session_state.users[username] = {
-                "messages": [],
-                "system_prompt": (
-                    f"You are Plus+, a personal AI assistant. "
-                    f"You are speaking directly to {username}. "
-                    "Never refer to the user in the third person. "
-                    "Be clear, calm, and intelligent."
-                )
-            }
-        st.rerun()
+        if st.button("Sign in", use_container_width=False):
+            if username.strip():
+                st.session_state.current_user = username.strip()
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-user = st.session_state.users[st.session_state.current_user]
-
-# ---------------- CHAT HEADER ----------------
+# ---------------- CHAT INTERFACE ----------------
 st.markdown(
     """
     <div class="chat-header">
@@ -241,15 +187,14 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ---------------- CHAT HISTORY ----------------
-if not user["messages"]:
+if not st.session_state.messages:
     st.markdown(
         """
         <div class="empty-state">
             <div class="big">Start a conversation</div>
             Ask anything — Plus+ is listening.
             <div class="hint">
-                Tip: type <code>/clear</code> to wipe this conversation, <code>/logout</code> to sign out.
+                Tip: type <code>/clear</code> to wipe this conversation.
             </div>
         </div>
         """,
@@ -257,7 +202,7 @@ if not user["messages"]:
     )
 else:
     rows_html = []
-    for m in user["messages"]:
+    for m in st.session_state.messages:
         role = "user" if m["role"] == "user" else "assistant"
         label = "You" if role == "user" else "Plus+"
         safe_content = (
@@ -280,39 +225,34 @@ else:
 # ---------------- COMMAND HANDLING ----------------
 def handle_command(text: str) -> bool:
     stripped = text.strip()
-    lower = stripped.lower()
-
-    if lower == "/clear":
-        user["messages"] = []
-        st.session_state.last_processed_input = None   # allow next message
+    if stripped.lower() == "/clear":
+        st.session_state.messages = []
+        st.session_state.last_processed_input = None
         st.rerun()
         return True
-
-    if lower == "/logout":
+    if stripped.lower() == "/logout":
         st.session_state.current_user = None
         st.session_state.last_processed_input = None
         st.rerun()
         return True
-
     return False
 
-# ---------------- CHAT INPUT ----------------
+# ---------------- CHAT INPUT (bug‑free) ----------------
 if prompt := st.chat_input("Message Plus+..."):
-    # Guard against duplicate processing after reruns
     if prompt == st.session_state.last_processed_input:
         st.stop()
     st.session_state.last_processed_input = prompt
 
     if not handle_command(prompt):
-        user["messages"].append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
         with st.spinner("Plus+ is thinking..."):
             response = client.chat.completions.create(
                 model=MODEL,
-                messages=[{"role": "system", "content": user["system_prompt"]}]
-                + user["messages"][-10:]
+                messages=[{"role": "system", "content": SYSTEM_PROMPT}]
+                + st.session_state.messages[-10:]
             )
             answer = response.choices[0].message.content
 
-        user["messages"].append({"role": "assistant", "content": answer})
+        st.session_state.messages.append({"role": "assistant", "content": answer})
         st.rerun()
