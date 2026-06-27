@@ -19,7 +19,7 @@ if not GROQ_API_KEY:
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
-MODEL = "llama-3.3-70b-versatile"  # use a real Groq model
+MODEL = "openai/gpt-oss-20b"  # use a real Groq model
 
 # ---------------- PURE DARK THEME CSS ----------------
 def inject_css():
