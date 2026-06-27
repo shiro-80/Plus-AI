@@ -11,11 +11,61 @@ st.set_page_config(
 
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    st.error("GROQ_API_KEY is missing")
+    st.markdown(
+        "<div style='color:#f2f2f2; background:#111; border:1px solid #333; "
+        "padding:14px 18px; border-radius:10px; max-width:420px; margin:10vh auto; "
+        "text-align:center; font-size:14px;'>GROQ_API_KEY is missing</div>",
+        unsafe_allow_html=True
+    )
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
 MODEL = "openai/gpt-oss-20b"
+
+# ---------------- THEMES ----------------
+THEMES = {
+    "dark": {
+        "bg": "#000000",
+        "text": "#f2f2f2",
+        "accent": "#9bb7d4",
+        "bubble_assistant": "rgba(255,255,255,0.03)",
+        "border": "rgba(255,255,255,0.08)",
+        "muted": "#888888",
+    },
+    "light": {
+        "bg": "radial-gradient(circle at 50% -10%, #ffffff 0%, #f2f3f5 55%, #e9eaee 100%)",
+        "text": "#1a1a1a",
+        "accent": "#3b6ea5",
+        "bubble_assistant": "rgba(0,0,0,0.02)",
+        "border": "rgba(0,0,0,0.10)",
+        "muted": "#666666",
+    },
+    "ocean": {
+        "bg": "radial-gradient(circle at 50% -10%, #06222f 0%, #021620 55%, #00090d 100%)",
+        "text": "#e6f6ff",
+        "accent": "#33c6ff",
+        "bubble_assistant": "rgba(51,198,255,0.04)",
+        "border": "rgba(51,198,255,0.18)",
+        "muted": "#7fb3c9",
+    },
+    "sunset": {
+        "bg": "radial-gradient(circle at 50% -10%, #2b0f1a 0%, #1a0a12 55%, #0a0306 100%)",
+        "text": "#ffece0",
+        "accent": "#ff8c5a",
+        "bubble_assistant": "rgba(255,140,90,0.05)",
+        "border": "rgba(255,140,90,0.2)",
+        "muted": "#c98f7a",
+    },
+    "forest": {
+        "bg": "radial-gradient(circle at 50% -10%, #0e1f14 0%, #07140c 55%, #020805 100%)",
+        "text": "#e8f5e9",
+        "accent": "#5fd38a",
+        "bubble_assistant": "rgba(95,211,138,0.04)",
+        "border": "rgba(95,211,138,0.2)",
+        "muted": "#8fb89c",
+    },
+}
+THEME_ORDER = list(THEMES.keys())
 
 # ---------------- STATE ----------------
 if "users" not in st.session_state:
@@ -24,19 +74,147 @@ if "users" not in st.session_state:
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+# ---------------- STYLE INJECTION ----------------
+def inject_css(theme_name: str):
+    t = THEMES.get(theme_name, THEMES["dark"])
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: {t['bg']};
+            color: {t['text']};
+        }}
+        header[data-testid="stHeader"] {{ background: transparent; }}
+
+        /* Fully remove sidebar and its toggle arrow */
+        section[data-testid="stSidebar"] {{ display: none; }}
+        div[data-testid="collapsedControl"] {{ display: none; }}
+
+        .block-container {{
+            max-width: 760px;
+            padding-top: 2.2rem;
+            padding-bottom: 6rem;
+        }}
+
+        /* Login card */
+        .login-wrap {{ display: flex; justify-content: center; margin-top: 8vh; }}
+        .login-card {{
+            width: 100%;
+            max-width: 380px;
+            background: {t['bubble_assistant']};
+            border: 1px solid {t['border']};
+            border-radius: 18px;
+            padding: 36px 32px 28px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+            text-align: center;
+        }}
+        .login-glow {{
+            width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%;
+            background: radial-gradient(circle, {t['text']} 0%, {t['accent']} 60%, transparent 100%);
+            opacity: 0.9; animation: glowpulse 2.6s ease-in-out infinite;
+        }}
+        @keyframes glowpulse {{
+            0%, 100% {{ transform: scale(1); opacity: 0.75; }}
+            50% {{ transform: scale(1.12); opacity: 1; }}
+        }}
+        .login-title {{ font-size: 22px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px; color: {t['text']}; }}
+        .login-sub {{ font-size: 13px; color: {t['muted']}; margin-bottom: 22px; }}
+
+        /* Chat header bar */
+        .chat-header {{
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 4px 18px; border-bottom: 1px solid {t['border']}; margin-bottom: 18px;
+        }}
+        .chat-header .name {{ font-size: 18px; font-weight: 600; color: {t['text']}; letter-spacing: 0.3px; }}
+        .chat-header .status {{ font-size: 12px; color: {t['accent']}; display: flex; align-items: center; gap: 6px; }}
+        .status-dot {{ width: 7px; height: 7px; border-radius: 50%; background: {t['accent']}; box-shadow: 0 0 6px {t['accent']}; }}
+        .theme-pill {{
+            font-size: 11px; color: {t['muted']}; border: 1px solid {t['border']};
+            padding: 3px 10px; border-radius: 999px;
+        }}
+
+        /* Chat bubbles */
+        div[data-testid="stChatMessage"] {{ background: transparent; }}
+
+        /* Empty state */
+        .empty-state {{ text-align: center; color: {t['muted']}; margin-top: 16vh; font-size: 14px; }}
+        .empty-state .big {{ font-size: 17px; color: {t['text']}; margin-bottom: 6px; font-weight: 500; }}
+        .empty-state .hint {{ font-size: 12px; margin-top: 14px; color: {t['muted']}; opacity: 0.8; }}
+
+        .stButton button {{
+            border-radius: 10px; border: 1px solid {t['border']};
+            background: {t['bubble_assistant']}; color: {t['text']};
+        }}
+        .stButton button:hover {{ border-color: {t['accent']}; }}
+
+        textarea, input {{ color: {t['text']} !important; }}
+
+        /* Block red anywhere in the UI: re-skin Streamlit's default error/alert styling */
+        div[data-testid="stAlert"] {{
+            background-color: {t['bubble_assistant']} !important;
+            border: 1px solid {t['border']} !important;
+            color: {t['text']} !important;
+        }}
+        div[data-testid="stAlert"] * {{
+            color: {t['text']} !important;
+        }}
+        div[data-testid="stAlertContentError"],
+        div[data-testid="stAlertContainer"] {{
+            background-color: {t['bubble_assistant']} !important;
+            color: {t['text']} !important;
+        }}
+        div[data-testid="stAlert"] svg {{
+            fill: {t['accent']} !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+inject_css(st.session_state.theme)
+
 # ---------------- LOGIN ----------------
 if not st.session_state.current_user:
-    st.title("Login")
+    st.markdown("<div class='login-wrap'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="login-card">
+            <div class="login-glow"></div>
+            <div class="login-title">Plus+AI</div>
+            <div class="login-sub">Sign in to continue</div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    username = st.text_input("Username")
+    username = st.text_input("Username", label_visibility="collapsed", placeholder="Username")
     password = ""
 
-    if username.lower() == "Vool":
-        password = st.text_input("Password", type="password")
+    if username.lower() == "vool":
+        password = st.text_input(
+            "Password", type="password",
+            label_visibility="collapsed", placeholder="Password"
+        )
 
-    if st.button("Login"):
-        if username.lower() == "Vool" and password != "8712":
-            st.error("Incorrect password")
+    login_clicked = st.button("Sign in", use_container_width=True)
+
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+    if login_clicked:
+        if not username.strip():
+            st.markdown(
+                "<div style='text-align:center; margin-top:10px; font-size:13px; opacity:0.85;'>Enter a username</div>",
+                unsafe_allow_html=True
+            )
+            st.stop()
+
+        if username.lower() == "vool" and password != "8712":
+            st.markdown(
+                "<div style='text-align:center; margin-top:10px; font-size:13px; opacity:0.85;'>Incorrect password</div>",
+                unsafe_allow_html=True
+            )
             st.stop()
 
         st.session_state.current_user = username
@@ -44,7 +222,6 @@ if not st.session_state.current_user:
         if username not in st.session_state.users:
             st.session_state.users[username] = {
                 "messages": [],
-                "portal_mode": False,
                 "system_prompt": (
                     f"You are Plus+, a personal AI assistant. "
                     f"You are speaking directly to {username}. "
@@ -59,141 +236,80 @@ if not st.session_state.current_user:
 
 user = st.session_state.users[st.session_state.current_user]
 
-# ---------------- COLORS ----------------
-is_ren = st.session_state.current_user.lower() == "ren"
-ring_color = "#9bb7d4" if is_ren else "#ffffff"
-text_color = ring_color if is_ren else "#ffffff"
-
-# ---------------- SIDEBAR ----------------
-with st.sidebar:
-    st.title("Settings")
-
-    if st.button("Toggle Eye Mode"):
-        user["portal_mode"] = not user["portal_mode"]
-        st.rerun()
-
-    if st.button("Clear Memory"):
-        user["messages"] = []
-        st.rerun()
-
-# ---------------- CSS ----------------
+# ---------------- CHAT HEADER ----------------
 st.markdown(
     f"""
-    <style>
-    body {{
-        background-color: #000000;
-        color: #ffffff;
-    }}
-
-    .portal-container {{
-        position: relative;
-        width: 100%;
-        min-height: 70vh;
-        padding-top: 60px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }}
-
-    .pulse-ring {{
-        width: 160px;
-        height: 160px;
-        border-radius: 50%;
-        border: 4px solid {ring_color};
-        animation: pulse 2.2s ease-in-out infinite;
-        box-sizing: border-box;
-    }}
-
-    @keyframes pulse {{
-        0% {{ transform: scale(1); opacity: 0.6; }}
-        50% {{ transform: scale(1.08); opacity: 1; }}
-        100% {{ transform: scale(1); opacity: 0.6; }}
-    }}
-
-    .eye-text {{
-        margin-top: 28px;
-        width: 100%;
-        max-width: 720px;
-        padding: 0 16px;
-        text-align: center;
-        font-size: 16px;
-        line-height: 1.6;
-        color: {text_color};
-        word-wrap: break-word;
-    }}
-
-    .typewriter span {{
-        opacity: 0;
-        animation: appear 0.03s forwards;
-    }}
-
-    @keyframes appear {{
-        to {{ opacity: 1; }}
-    }}
-
-    .user-msg {{
-        text-align: right;
-        margin: 10px 0;
-        color: #cccccc;
-    }}
-
-    .nova-msg {{
-        text-align: left;
-        margin: 10px 0;
-        color: #ffffff;
-    }}
-    </style>
+    <div class="chat-header">
+        <div class="name">Plus+</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span class="theme-pill">{st.session_state.theme}</span>
+            <div class="status"><span class="status-dot"></span>Online</div>
+        </div>
+    </div>
     """,
     unsafe_allow_html=True
 )
 
-# ---------------- TYPEWRITER ----------------
-def typewriter_html(text):
-    safe = text.replace("<", "&lt;").replace(">", "&gt;")
-    return "".join(
-        f"<span style='animation-delay:{i*0.03}s'>{c}</span>"
-        for i, c in enumerate(safe)
-    )
-
-# ---------------- UI ----------------
-if user["portal_mode"]:
-    last_answer = ""
-    for m in reversed(user["messages"]):
-        if m["role"] == "assistant":
-            last_answer = m["content"]
-            break
-
+# ---------------- CHAT HISTORY ----------------
+if not user["messages"]:
     st.markdown(
         f"""
-        <div class="portal-container">
-            <div class="pulse-ring"></div>
-            <div class="eye-text">
-                <div class="typewriter">
-                    {typewriter_html(last_answer)}
-                </div>
-            </div>
+        <div class="empty-state">
+            <div class="big">Start a conversation</div>
+            Ask anything — Plus+ is listening.
+            <div class="hint">Tip: type <code>/ChangeTheme</code> to cycle themes, or <code>/ChangeTheme ocean</code> to pick one.<br>
+            Themes: {", ".join(THEME_ORDER)}. Type <code>/clear</code> to wipe this conversation, <code>/logout</code> to sign out.</div>
         </div>
         """,
         unsafe_allow_html=True
     )
 else:
     for m in user["messages"]:
-        cls = "user-msg" if m["role"] == "user" else "nova-msg"
-        st.markdown(
-            f"<div class='{cls}'>{m['content']}</div>",
-            unsafe_allow_html=True
-        )
+        avatar = "🧑" if m["role"] == "user" else "⚪"
+        with st.chat_message(m["role"], avatar=avatar):
+            st.markdown(m["content"])
 
-# ---------------- CHAT ----------------
-if prompt := st.chat_input("Type for Talking"):
-    user["messages"].append({"role": "user", "content": prompt})
+# ---------------- COMMAND HANDLING ----------------
+def handle_command(text: str) -> bool:
+    """Returns True if input was a command and was handled (no LLM call needed)."""
+    stripped = text.strip()
+    lower = stripped.lower()
 
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "system", "content": user["system_prompt"]}]
-        + user["messages"][-10:]
-    )
+    if lower == "/clear":
+        user["messages"] = []
+        st.rerun()
+        return True
 
-    answer = response.choices[0].message.content
-    user["messages"].append({"role": "assistant", "content": answer})
-    st.rerun()
+    if lower == "/logout":
+        st.session_state.current_user = None
+        st.rerun()
+        return True
+
+    if lower.startswith("/changetheme"):
+        parts = stripped.split(maxsplit=1)
+        if len(parts) == 2 and parts[1].strip().lower() in THEMES:
+            st.session_state.theme = parts[1].strip().lower()
+        else:
+            # No valid theme name given -> cycle to next theme
+            current_index = THEME_ORDER.index(st.session_state.theme)
+            st.session_state.theme = THEME_ORDER[(current_index + 1) % len(THEME_ORDER)]
+        st.rerun()
+        return True
+
+    return False
+
+# ---------------- CHAT INPUT ----------------
+if prompt := st.chat_input("Message Plus+... (try /ChangeTheme)"):
+    if not handle_command(prompt):
+        user["messages"].append({"role": "user", "content": prompt})
+
+        with st.spinner("Plus+ is thinking..."):
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "system", "content": user["system_prompt"]}]
+                + user["messages"][-10:]
+            )
+            answer = response.choices[0].message.content
+
+        user["messages"].append({"role": "assistant", "content": answer})
+        st.rerun()
