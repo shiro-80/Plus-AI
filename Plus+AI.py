@@ -5,7 +5,6 @@ from groq import Groq
 # ---------------- CONFIG ----------------
 st.set_page_config(
     page_title="Plus+AI",
-    page_icon="⚪",
     layout="wide"
 )
 
@@ -111,15 +110,6 @@ def inject_css(theme_name: str):
             box-shadow: 0 20px 60px rgba(0,0,0,0.35);
             text-align: center;
         }}
-        .login-glow {{
-            width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%;
-            background: radial-gradient(circle, {t['text']} 0%, {t['accent']} 60%, transparent 100%);
-            opacity: 0.9; animation: glowpulse 2.6s ease-in-out infinite;
-        }}
-        @keyframes glowpulse {{
-            0%, 100% {{ transform: scale(1); opacity: 0.75; }}
-            50% {{ transform: scale(1.12); opacity: 1; }}
-        }}
         .login-title {{ font-size: 22px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 4px; color: {t['text']}; }}
         .login-sub {{ font-size: 13px; color: {t['muted']}; margin-bottom: 22px; }}
 
@@ -129,15 +119,41 @@ def inject_css(theme_name: str):
             padding: 4px 4px 18px; border-bottom: 1px solid {t['border']}; margin-bottom: 18px;
         }}
         .chat-header .name {{ font-size: 18px; font-weight: 600; color: {t['text']}; letter-spacing: 0.3px; }}
-        .chat-header .status {{ font-size: 12px; color: {t['accent']}; display: flex; align-items: center; gap: 6px; }}
-        .status-dot {{ width: 7px; height: 7px; border-radius: 50%; background: {t['accent']}; box-shadow: 0 0 6px {t['accent']}; }}
+        .chat-header .status {{ font-size: 12px; color: {t['muted']}; }}
         .theme-pill {{
             font-size: 11px; color: {t['muted']}; border: 1px solid {t['border']};
             padding: 3px 10px; border-radius: 999px;
         }}
 
-        /* Chat bubbles */
-        div[data-testid="stChatMessage"] {{ background: transparent; }}
+        /* Message bubbles — text only, no avatars/icons */
+        .msg-row {{ display: flex; margin: 10px 0; }}
+        .msg-row.user {{ justify-content: flex-end; }}
+        .msg-row.assistant {{ justify-content: flex-start; }}
+        .msg-bubble {{
+            max-width: 78%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 15px;
+            line-height: 1.55;
+            word-wrap: break-word;
+            border: 1px solid {t['border']};
+        }}
+        .msg-bubble.user {{
+            background: {t['bubble_assistant']};
+            color: {t['text']};
+            border-color: {t['accent']};
+        }}
+        .msg-bubble.assistant {{
+            background: transparent;
+            color: {t['text']};
+        }}
+        .msg-label {{
+            font-size: 11px;
+            color: {t['muted']};
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
 
         /* Empty state */
         .empty-state {{ text-align: center; color: {t['muted']}; margin-top: 16vh; font-size: 14px; }}
@@ -169,6 +185,38 @@ def inject_css(theme_name: str):
         div[data-testid="stAlert"] svg {{
             fill: {t['accent']} !important;
         }}
+
+        /* Remove the default gray backdrop behind the chat input bar */
+        div[data-testid="stBottomBlockContainer"],
+        div[data-testid="stBottom"],
+        div[data-testid="stChatInputContainer"] {{
+            background: transparent !important;
+            background-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            border-top: none !important;
+        }}
+        div[data-testid="stBottomBlockContainer"] *,
+        div[data-testid="stBottom"] * {{
+            background-color: transparent !important;
+        }}
+
+        /* Restyle the chat input box itself to match the theme */
+        div[data-testid="stChatInput"] {{
+            background-color: {t['bubble_assistant']} !important;
+            border: 1px solid {t['border']} !important;
+            border-radius: 14px !important;
+        }}
+        div[data-testid="stChatInput"] textarea {{
+            background-color: transparent !important;
+            color: {t['text']} !important;
+        }}
+        div[data-testid="stChatInput"] textarea::placeholder {{
+            color: {t['muted']} !important;
+        }}
+        div[data-testid="stChatInput"] button svg {{
+            fill: {t['accent']} !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True
@@ -182,7 +230,6 @@ if not st.session_state.current_user:
     st.markdown(
         """
         <div class="login-card">
-            <div class="login-glow"></div>
             <div class="login-title">Plus+AI</div>
             <div class="login-sub">Sign in to continue</div>
         """,
@@ -243,7 +290,7 @@ st.markdown(
         <div class="name">Plus+</div>
         <div style="display:flex; align-items:center; gap:10px;">
             <span class="theme-pill">{st.session_state.theme}</span>
-            <div class="status"><span class="status-dot"></span>Online</div>
+            <div class="status">Online</div>
         </div>
     </div>
     """,
@@ -264,10 +311,26 @@ if not user["messages"]:
         unsafe_allow_html=True
     )
 else:
+    rows_html = []
     for m in user["messages"]:
-        avatar = "🧑" if m["role"] == "user" else "⚪"
-        with st.chat_message(m["role"], avatar=avatar):
-            st.markdown(m["content"])
+        role = "user" if m["role"] == "user" else "assistant"
+        label = "You" if role == "user" else "Plus+"
+        safe_content = (
+            m["content"]
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\n", "<br>")
+        )
+        rows_html.append(
+            f"""<div class="msg-row {role}">
+                <div>
+                    <div class="msg-label">{label}</div>
+                    <div class="msg-bubble {role}">{safe_content}</div>
+                </div>
+            </div>"""
+        )
+    st.markdown("".join(rows_html), unsafe_allow_html=True)
 
 # ---------------- COMMAND HANDLING ----------------
 def handle_command(text: str) -> bool:
